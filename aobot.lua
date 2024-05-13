@@ -1,7 +1,6 @@
 -- Initializing global variables to store the latest game state and game host process.
-LatestGameState = {}  -- Stores all game data
-InAction = false     -- Prevents your bot from doing multiple actions
-Counter = 0
+LatestGameState = LatestGameState or nil  -- Stores all game data
+InAction = InAction or false     -- Prevents your bot from doing multiple actions
 
 colors = {
   red = "\27[31m",
@@ -10,7 +9,6 @@ colors = {
   reset = "\27[0m",
   gray = "\27[90m"
 }
-
 
 -- Checks if two points are within a given range.
 -- @param x1, y1: Coordinates of the first point.
@@ -21,13 +19,83 @@ function inRange(x1, y1, x2, y2, range)
     return math.abs(x1 - x2) <= range and math.abs(y1 - y2) <= range
 end
 
--- Decide the next action based on player proximity, energy, health, and game map analysis.
--- Prioritize targets based on health (weaker first), distance (closer first), and strategic positions.
--- Analyze the map for chokepoints or advantageous positions.
+-- Enhanced decision-making for movement and attacking
+local function findStrategicPosition(player)
+    local bestPosition = {x = player.x, y = player.y}
+    local minDistance = math.huge
+
+    -- Iterate through the grid to find the closest position to the nearest enemy
+    for x = 1, Width do
+        for y = 1, Height do
+            local distanceToNearestEnemy = math.huge
+            for _, enemy in pairs(Players) do
+                if enemy ~= player and inRange(player.x, player.y, enemy.x, enemy.y, Range) then
+                    local dx = x - enemy.x
+                    local dy = y - enemy.y
+                    distanceToNearestEnemy = math.sqrt(dx*dx + dy*dy)
+                    break
+                end
+            end
+            if distanceToNearestEnemy < minDistance then
+                minDistance = distanceToNearestEnemy
+                bestPosition = {x = x, y = y}
+            end
+        end
+    end
+
+    return bestPosition
+end
+
+local function shouldConserveEnergy(player)
+    local shouldConserve = false
+
+    -- Conserve energy if health is low
+    if player.health < 50 then
+        shouldConserve = true
+    end
+
+    -- Conserve energy if there are multiple enemies nearby
+    local nearbyEnemies = 0
+    for _, enemy in pairs(Players) do
+        if enemy ~= player and inRange(player.x, player.y, enemy.x, enemy.y, Range) then
+            nearbyEnemies = nearbyEnemies + 1
+        end
+    end
+    if nearbyEnemies > 1 then
+        shouldConserve = true
+    end
+
+    return shouldConserve
+end
+
+function decideNextAction(player)
+    -- Find the strategic position to move to
+    local strategicPosition = findStrategicPosition(player)
+
+    -- Determine if the bot should conserve energy
+    local shouldConserve = shouldConserveEnergy(player)
+
+    -- Decide between moving and attacking based on strategic position and energy conservation
+    if shouldConserve then
+        -- If the bot should conserve energy, move towards the strategic position
+        moveTo(player, strategicPosition)
+    else
+        -- Otherwise, attack the nearest enemy
+        local nearestEnemy = findNearestEnemy(player)
+        if nearestEnemy then
+            attack(player, nearestEnemy)
+        end
+    end
+end
+
+
+--[[
+
 function decideNextAction()
   local player = LatestGameState.Players[ao.id]
   local targetInRange = false
   local bestTarget = nil  -- Stores the ID of the best target player (considering health, distance)
+  
   -- Find closest and weakest target within attack range
   for target, state in pairs(LatestGameState.Players) do
     if target ~= ao.id and inRange(player.x, player.y, state.x, state.y, 1) then
@@ -38,23 +106,35 @@ function decideNextAction()
     end
   end
 
-  if player.energy > 5 and targetInRange then
-    print(colors.red .. "Player in range. Attacking." .. colors.reset)
+]]--
+
+  -- Check if the bot should conserve energy
+  if shouldConserveEnergy() then
+    local strategicPosition = findStrategicPosition()
+    if strategicPosition then
+        ao.send({Target = Game, Action = "PlayerMove", Player = ao.id, Direction = strategicPosition})
+    end
+  elseif player.energy > 5 and targetInRange then
+    print(colors.red.. "Player in range. Attacking.".. colors.reset)
     ao.send({  -- Attack the closest player with all your energy.
       Target = Game,
       Action = "PlayerAttack",
       Player = ao.id,
       AttackEnergy = tostring(player.energy),
     })
-    print(colors.red .. "No player in range or low energy. Moving randomly." .. colors.reset)
- 
-    
-	local directionRandom = {"Up", "Down", "Left", "Right", "UpRight", "UpLeft", "DownRight", "DownLeft"}
+  else
+    -- map analysis
+    local directionRandom = {"Up", "Down", "Left", "Right", "UpLeft", "UpRight", "DownLeft", "DownRight}
     local randomIndex = math.random(#directionRandom)
     ao.send({Target = Game, Action = "PlayerMove", Player = ao.id, Direction = directionRandom[randomIndex]})
   end
+  
   InAction = false -- Reset the "InAction" flag
 end
+
+-- Main loop or event handler to call decideNextAction
+-- This part of the code depends on how your bot's main loop or event handling is structured
+-- Ensure that decideNextAction is called appropriately based on game events or ticks
 
 -- Handler to print game announcements and trigger game state updates.
 Handlers.add(
