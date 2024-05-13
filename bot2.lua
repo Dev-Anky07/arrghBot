@@ -85,7 +85,7 @@ function decideNextAction()
     })
   else
     -- map analysis, using only 4 directions
-    local directionRandom = {"Up", "Down", "Left", "Right", "UpLeft", "UpRight", "DownLeft", "DownRight}
+    local directionRandom = {"Up", "Down", "Left", "Right", "UpLeft", "UpRight", "DownLeft", "DownRight"}
     local randomIndex = math.random(#directionRandom)
     ao.send({Target = Game, Action = "PlayerMove", Player = ao.id, Direction = directionRandom[randomIndex]})
   end

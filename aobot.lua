@@ -86,27 +86,6 @@ function decideNextAction(player)
             attack(player, nearestEnemy)
         end
     end
-end
-
-
---[[
-
-function decideNextAction()
-  local player = LatestGameState.Players[ao.id]
-  local targetInRange = false
-  local bestTarget = nil  -- Stores the ID of the best target player (considering health, distance)
-  
-  -- Find closest and weakest target within attack range
-  for target, state in pairs(LatestGameState.Players) do
-    if target ~= ao.id and inRange(player.x, player.y, state.x, state.y, 1) then
-      targetInRange = true
-      if not bestTarget or state.health < bestTarget.health or (state.health == bestTarget.health and inRange(player.x, player.y, state.x, state.y, 1) < inRange(player.x, player.y, bestTarget.x, bestTarget.y, 1)) then
-        bestTarget = state
-      end
-    end
-  end
-
-]]--
 
   -- Check if the bot should conserve energy
   if shouldConserveEnergy() then
@@ -124,7 +103,7 @@ function decideNextAction()
     })
   else
     -- map analysis
-    local directionRandom = {"Up", "Down", "Left", "Right", "UpLeft", "UpRight", "DownLeft", "DownRight}
+    local directionRandom = {"Up", "Down", "Left", "Right", "UpLeft", "UpRight", "DownLeft", "DownRight"}
     local randomIndex = math.random(#directionRandom)
     ao.send({Target = Game, Action = "PlayerMove", Player = ao.id, Direction = directionRandom[randomIndex]})
   end
